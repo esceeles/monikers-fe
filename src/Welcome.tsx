@@ -17,20 +17,12 @@ function Welcome() : JSX.Element {
             </div>
             <div className="flex-col">
                 <div className="mt-8">
-                <button
-                    className={buttonStyle}
-                    type="submit"
-                    onClick={() => {navigate('/join', {state: {create: true}})}}>
-                    Create Game
-                </button>
-                </div>
-                <div className="mt-8">
-                <button
-                    className={buttonStyle}
-                    type="submit"
-                    onClick={() => {navigate('/join', {state: {create: false}})}}>
-                    Join Game
-                </button>
+                    <button
+                        className={buttonStyle}
+                        type="submit"
+                        onClick={() => {navigate('/join', {state: {offlineMode: true, gameCode: Math.floor(Math.random() * 10)}})}}>
+                        Offline Mode
+                    </button>
                 </div>
             </div>
             <div className="fill w-full mt-16">

@@ -1,135 +1,164 @@
 import React, {useEffect, useState} from "react";
-import {useLocation} from "react-router-dom";
+import {useLocation, useNavigate} from "react-router-dom";
 import {buttonStyle} from "./Welcome";
 
-function StartGame(playerName: string, isCreate: boolean, joinCode: {}, setLookAtHand: (value: (((prevState: boolean) => boolean) | boolean)) => void) {
-    return (
-        <div className="flex-col w-full h-full position: absolute align-center justify-center text-black text-2xl font-bold" style={{backgroundColor: "#FFDAB9"}}>
-            <div className = "flex-col w-full h-full position: absolute">
-                <div className="mt-24">Hello {playerName}</div>
-                {isCreate ? (
-                    <div className="mt-16">Join Code: {joinCode}
-                        <button
-                            onClick={() => {setLookAtHand(true)}}
-                            className={buttonStyle}
-                            type="submit">
-                            Start Game
-                        </button>
-                    </div>
-                ) : (
-                    <div className="mt-64">
-                        Waiting for host to start...
-                    </div>
-                )}
-            </div>
-        </div>
-    )
-};
-
 export function Play() {
+    const navigate = useNavigate();
 
     // @ts-ignore
-    let playerName =useLocation().state.playerName as string
+    let usePile = useLocation().state.deck as number[]
     // @ts-ignore
-    let isCreate =useLocation().state.isCreate as boolean
+    let teamA =useLocation().state.teamA as map<string, boolean>
     // @ts-ignore
-    const [joinCode, setJoinCode] = useState<{}>(useLocation().state.joinCode as string);
-    const [hand, setHand] = useState<number[]>([]);
-    const [lookAtHand, setLookAtHand] = useState(false);
-    const [playStarted, setPlayStarted] = useState(false);
-    const [currentIndex, setCurrentIndex] = useState<number>(0);
-    const [discardCount, setDiscardCount] = useState(3);
+    let teamB =useLocation().state.teamB as map<string, boolean>
+    // @ts-ignore
+    let players = useLocation().state.players as string[]
 
-    useEffect(
-        () => {
-            setCurrentIndex(0);
-    }, [hand]);
+    const [currentPlayer, setCurrentPlayer] = useState(0);
+    const [activeCards, setActiveCards] = useState<number[]>(usePile.slice());
+    const [currentViewIndex, setCurrentViewIndex] = useState<number>(0);
+    const [round, setRound] = useState(1);
+    const [teamAPoints, setTeamAPoints] = useState(0);
+    const [teamBPoints, setTeamBPoints] = useState(0);
+
+    function nextPlayer() {
+        if (currentPlayer < players.length -1 ) {
+            setCurrentPlayer(currentPlayer + 1)
+        } else {
+            setCurrentPlayer(0)
+        }
+        nextCard()
+        reset()
+        setIsActive(false)
+        setReady(false)
+    }
+
+    function nextCard() {
+        if (currentViewIndex >= activeCards.length - 1) {
+            setCurrentViewIndex(0)
+        } else {
+            setCurrentViewIndex(currentViewIndex + 1)
+        }
+    }
 
     useEffect(() => {
-        isCreate ? (
-        fetch(`http://localhost:8080/createGame?hostName=${playerName}`)
-            .then( (response) => {
-                let jsonResp = response.json();
-                jsonResp.then(data => {
-                    setJoinCode(data["JoinCode"])
-                    setHand(data["Hand"] as number[])
-                })
-            })
-        ): (
-            fetch(`http://localhost:8080/joinGame?name=${playerName}&joinCode=${joinCode}`)
-                .then( (response) => {
-                    let jsonResp = response.json();
-                    jsonResp.then(data => {
-                        setHand(data["Hand"] as number[])
-                    })
-                })
-        )
-    }, []);
+        if (round < 4) {
+            nextPlayer()
+            setActiveCards(usePile.slice());
+        } else {
+            let winner :string
+            if (teamAPoints > teamBPoints) {
+                winner = "Team A"
+            } else if (teamBPoints > teamAPoints) {
+                winner = "Team B"
+            } else {
+                winner = "Its a Tie"
+            }
+            navigate('/results', {state: {winner: winner}})
+        }
+    }, [round]);
+
+    const [seconds, setSeconds] = useState(0);
+    const [isActive, setIsActive] = useState(true);
+    const [ready, setReady] = useState(false);
+
+    function reset() {
+        setSeconds(0);
+    }
+
+    useEffect(() => {
+        let interval: NodeJS.Timer | null = null;
+        if (isActive) {
+            interval = setInterval(() => {
+                setSeconds(seconds => seconds + 1);
+            }, 1000);
+        } else if (!isActive && seconds !== 0) {
+            // if (interval !== null) {
+            //     clearInterval(interval);
+            // }
+        }
+        return () => {
+            if (interval !== null) {
+                clearInterval(interval);
+            }
+        }
+    }, [isActive, seconds]);
+
+    useEffect(() => {
+        if (seconds >= 10) {
+            nextPlayer();
+            reset();
+        }
+    }, [seconds]);
 
     return (
         <>
-        !lookAtHand ? (
-                <>
-                    {StartGame(playerName, isCreate, joinCode, setLookAtHand,}
-                </>
-
-            ) : (
-                <div className="flex-col w-full h-full position: absolute align-center items-center justify-center text-black text-2xl font-bold" style={{backgroundColor: "#FFDAB9"}}>
+            <div>
+                Round {round} <br/>
+                You're Up: {players[currentPlayer]}!
+                {ready ? (
                     <div className = "flex-col w-full h-full position: absolute">
-                        {hand.length > 0 && (
+                        <div className="time">
+                            {seconds}s
+                        </div>
+                        {activeCards[currentViewIndex] != undefined && (
                             <div className=" mt-6 w-3/4 m-auto">
-                                <img className="" src={require("./img/".concat(String(hand[currentIndex]), ".png"))} alt="WHAT?!"/>
+                                <img className="" src={require("./img/cards/".concat(String(activeCards[currentViewIndex]), ".png"))} alt="WHAT?!"/>
                             </div>
                         )}
                         <div className="mt-4">
                             <button
                                 onClick={() => {
-                                    if (hand.length -1 > currentIndex) {
-                                        setCurrentIndex(currentIndex + 1)
+                                    if (activeCards.length - 1 > currentViewIndex) {
+                                        setCurrentViewIndex(currentViewIndex + 1)
                                     } else {
-                                        setCurrentIndex(0)
+                                        setCurrentViewIndex(0)
                                     }
                                 }}
                                 className={buttonStyle}
                                 type="submit">
-                                Next
+                                Pass
                             </button>
                         </div>
-                        {discardCount > 0 ? (
-                            <div className="mt-4">
-                                <button
-                                    onClick={() => {
-                                        setDiscardCount(discardCount - 1)
-                                        console.log(hand);
-                                        console.log(currentIndex);
-                                        hand.splice(currentIndex, 1);
-                                        console.log(hand);
-                                    }}
-                                    className={buttonStyle}
-                                    type="submit">
-                                    Discard ({discardCount})
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="mt-4">
-                                <button
-                                    onClick={() => {
-                                        setDiscardCount(discardCount - 1)
-                                        console.log(hand);
-                                        console.log(currentIndex);
-                                        hand.splice(currentIndex, 1);
-                                        console.log(hand);
-                                    }}
-                                    className={buttonStyle}
-                                    type="submit">
-                                    
-                                </button>
-                            </div>
-                        )}
-
+                        <div className="mt-4">
+                            <button
+                                onClick={() => {
+                                    if (teamA.get(players[currentPlayer])) {
+                                        setTeamAPoints(teamAPoints + 1)
+                                    } else if (teamB.get(players[currentPlayer])) {
+                                        setTeamBPoints(teamBPoints + 1)
+                                    } else {
+                                        console.log("who da fuck is this?!")
+                                    }
+                                    activeCards.splice(currentViewIndex, 1);
+                                    if (activeCards.length === 0) {
+                                        setRound(round + 1)
+                                    } else {
+                                        nextCard()
+                                    }
+                                }}
+                                className={buttonStyle}
+                                type="submit">
+                                Guessed
+                            </button>
+                        </div>
                     </div>
-                </div>
-            )
+                ) : (
+                    <div>
+                        Ready?
+                        <button
+                            onClick={() => {
+                                setReady(true)
+                                setIsActive(true)
+                            }}
+                            className={buttonStyle}
+                            type="submit">
+                            Ready
+                        </button>
+                    </div>
+                )}
+
+            </div>
         </>
     );
 }
